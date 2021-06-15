@@ -4,7 +4,18 @@ import paramiko
 
 
 class ThirdModule(object):
+    """
+    第三方模块功能由该模块完成，例如：
+    安装数据库、redis等第三方组件
+    """
     def __init__(self, ip=None, port=22, user=None, password=None, data_dir=None):
+        """
+        :param ip: ssh 连接 IP
+        :param port: ssh 端口
+        :param user: ssh 用户名
+        :param password: ssh 端口
+        :param data_dir: 存放数据地址
+        """
         self.ip = ip
         self.port = port
         self.user = user
@@ -12,12 +23,20 @@ class ThirdModule(object):
         self.data_dir = data_dir
 
     def _connect(self):
+        """
+        使用paramiko远程连接初始化
+        :return: sshclient:远程连接客户端
+        """
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(hostname=self.ip, port=self.port, username=self.user, password=self.password)
         return ssh
 
     def _ip_2_server_id(self):
+        """
+        将传入的ip地址转化为server_id,避免server_id重复
+        :return: server_id: ServerId值
+        """
         m_list = [int(x) for x in self.ip.split(".")]
         m_str = ''
         for item in m_list:
@@ -26,6 +45,10 @@ class ThirdModule(object):
 
     # scp mysql-8.0.19-linux-glibc2.12-x86_64.tar.xz to remote server
     def _scp_mysql_package(self):
+        """
+        将mysql安装包拷贝到远程服务器
+        :return:
+        """
         ssh = self._connect()
         transport = ssh.get_transport()
         sftp = paramiko.SFTPClient.from_transport(transport)
@@ -42,11 +65,15 @@ class ThirdModule(object):
     # echo 'export  PATH=/usr/local/mysql8.0/bin:$PATH' >> /etc/profile
     # . /etc/profile
     def _install_single_mysql(self):
+        """
+        安装mysql
+        注意：由于paramiko会开启一个bash环境，所以将PATH添加到/etc/profile后，. /etc/profile该命令无法生效
+        :return: 返回错误信息
+        """
         command = "cd /usr/local/src && tar xf mysql-8.0.25-linux-glibc2.17-x86_64-minimal.tar.xz;" \
                   "cd /usr/local/src && mv mysql-8.0.25-linux-glibc2.17-x86_64-minimal /usr/local/mysql8.0;" \
                   "echo 'export  PATH=/usr/local/mysql8.0/bin:$PATH' >> /etc/profile;" \
                   ". /etc/profile"
-        # command = ". /etc/profile"
         ssh = self._connect()
         stdin, stdout, stderr = ssh.exec_command(command)
         ssh.close()
@@ -59,6 +86,10 @@ class ThirdModule(object):
     # mysqld --initialize-insecure --datadir=/datadir/data --user = mysql
     # chown -R mysql: mysql /datadir
     def _init_single_mysql(self):
+        """
+        初始化数据库
+        :return: 返回初始化报错信息
+        """
         command = "useradd -M -s /sbin/nologin mysql;" \
                   "mkdir -pv /%s/{temp,log,data};" \
                   "touch /%s/log/err.log;" \
@@ -93,6 +124,10 @@ class ThirdModule(object):
     # [client]
     # socket=/datadir/temp/mysqld.sock
     def _config_start_single_mysql(self):
+        """
+        配置文件生成，并安全启动数据库
+        :return: 返回启动失败信息
+        """
         config = configparser.ConfigParser()
         config['mysqld'] = {
             'basedir': '/usr/local/mysql8.0',
@@ -129,6 +164,10 @@ class ThirdModule(object):
         return stderr.read().decode('utf-8')
 
     def _set_master_node(self):
+        """
+        将已经装好的数据库设置为master节点
+        :return: 返回设置主节点失败信息
+        """
         ssh = self._connect()
         command = "/usr/local/mysql8.0/bin/mysql -uroot -e " \
                   "\"CREATE USER 'repl'@'%' IDENTIFIED BY 'password';GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%'\";"
@@ -137,6 +176,11 @@ class ThirdModule(object):
         return stderr.read().decode('utf-8')
 
     def _set_slave_node(self, m_ip):
+        """
+        将已经装好的数据库设置为slave节点
+        :param m_ip: 主节点IP
+        :return: 设置从节点报错信息
+        """
         ssh = self._connect()
         command = "CHANGE MASTER TO MASTER_HOST = '%s'," \
                   "MASTER_PORT = 3306, " \
@@ -148,6 +192,10 @@ class ThirdModule(object):
         return stderr.read().decode('utf-8')
 
     def install_mysql_node(self):
+        """
+        将以上安装数据库的私有函数统一到该函数中，可对外提供单节点数据库的安装
+        :return:
+        """
         self._scp_mysql_package()
         res = self._install_single_mysql()
         if res != '':
