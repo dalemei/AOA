@@ -50,7 +50,7 @@ class ThirdModule(object):
         ssh = self._connect()
         stdin, stdout, stderr = ssh.exec_command(command)
         ssh.close()
-        return stderr.read()
+        return stderr.read().decode('utf-8')
 
     # useradd -M -s /sbin/nologin mysql
     # mkdir -pv /datadir/{temp, log, data}
@@ -69,7 +69,7 @@ class ThirdModule(object):
         ssh = self._connect()
         stdin, stdout, stderr = ssh.exec_command(command)
         ssh.close()
-        return stderr.read()
+        return stderr.read().decode('utf-8')
 
     # [mysqld]
     # basedir=/usr/local/mysql8.0
@@ -126,7 +126,7 @@ class ThirdModule(object):
         stdin, stdout, stderr = ssh.exec_command(command)
         sftp.close()
         ssh.close()
-        return stderr.read()
+        return stderr.read().decode('utf-8')
 
     def _set_master_node(self):
         ssh = self._connect()
@@ -134,7 +134,7 @@ class ThirdModule(object):
                   "\"CREATE USER 'repl'@'%' IDENTIFIED BY 'password';GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%'\";"
         stdin, stdout, stderr = ssh.exec_command(command)
         ssh.close()
-        return stderr.read()
+        return stderr.read().decode('utf-8')
 
     def _set_slave_node(self, m_ip):
         ssh = self._connect()
@@ -145,7 +145,7 @@ class ThirdModule(object):
                   "MASTER_AUTO_POSITION = 1;start slave;" % (m_ip, )
         stdin, stdout, stderr = ssh.exec_command(command)
         ssh.close()
-        return stderr.read()
+        return stderr.read().decode('utf-8')
 
     def install_mysql_node(self):
         self._scp_mysql_package()
